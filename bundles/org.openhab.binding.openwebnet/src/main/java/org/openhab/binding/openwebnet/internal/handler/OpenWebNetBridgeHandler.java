@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -517,7 +517,7 @@ public class OpenWebNetBridgeHandler extends ConfigStatusBridgeHandler implement
                         || (discoveryByActivation && !scanIsActive))) {
                     discoverByActivation(baseMsg);
                 } else {
-                    logger.debug("ownId={} has NO DEVICE associated, ignoring it", ownId);
+                    logger.debug("ownId={} has NO DEVICE associated to bridge {}: ignoring it", ownId, thing.getUID());
                 }
             } else {
                 deviceHandler.handleMessage(baseMsg);

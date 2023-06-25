@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -162,8 +162,16 @@ public class MyQAccountHandler extends BaseBridgeHandler implements AccessTokenR
         stopPolls();
         OAuthClientService oAuthService = this.oAuthService;
         if (oAuthService != null) {
-            oAuthService.close();
+            oAuthService.removeAccessTokenRefreshListener(this);
+            oAuthFactory.ungetOAuthService(getThing().toString());
+            this.oAuthService = null;
         }
+    }
+
+    @Override
+    public void handleRemoval() {
+        oAuthFactory.deleteServiceAndAccessToken(getThing().toString());
+        super.handleRemoval();
     }
 
     @Override

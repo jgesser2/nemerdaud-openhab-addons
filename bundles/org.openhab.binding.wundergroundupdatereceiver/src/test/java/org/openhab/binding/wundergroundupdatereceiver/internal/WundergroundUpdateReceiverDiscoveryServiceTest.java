@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -54,7 +54,6 @@ import org.openhab.core.thing.type.ChannelKind;
 import org.openhab.core.thing.type.ChannelTypeProvider;
 import org.openhab.core.thing.type.ChannelTypeRegistry;
 import org.openhab.core.thing.type.ChannelTypeUID;
-import org.osgi.service.http.HttpService;
 import org.osgi.service.http.NamespaceException;
 
 /**
@@ -88,8 +87,7 @@ class WundergroundUpdateReceiverDiscoveryServiceTest {
         TestChannelTypeRegistry channelTypeRegistry = new TestChannelTypeRegistry();
         WundergroundUpdateReceiverDiscoveryService discoveryService = new WundergroundUpdateReceiverDiscoveryService(
                 true);
-        HttpService httpService = mock(HttpService.class);
-        WundergroundUpdateReceiverServlet sut = new WundergroundUpdateReceiverServlet(httpService, discoveryService);
+        WundergroundUpdateReceiverServlet sut = new WundergroundUpdateReceiverServlet(discoveryService);
         discoveryService.addUnhandledStationId(REQ_STATION_ID, sut.normalizeParameterMap(req.getParameterMap()));
         Thing thing = ThingBuilder.create(SUPPORTED_THING_TYPES_UIDS.stream().findFirst().get(), TEST_THING_UID)
                 .withConfiguration(new Configuration(Map.of(REPRESENTATION_PROPERTY, REQ_STATION_ID)))
@@ -107,22 +105,22 @@ class WundergroundUpdateReceiverDiscoveryServiceTest {
         // Then
         assertThat(actual.size(), is(9));
 
-        assertChannel(actual.get(0), METADATA_GROUP, LAST_RECEIVED, LAST_RECEIVED_DATETIME_CHANNELTYPEUID,
-                ChannelKind.STATE, is("DateTime"));
-        assertChannel(actual.get(1), METADATA_GROUP, LAST_QUERY_TRIGGER, LAST_QUERY_TRIGGER_CHANNELTYPEUID,
+        assertChannel(actual, METADATA_GROUP, LAST_RECEIVED, LAST_RECEIVED_DATETIME_CHANNELTYPEUID, ChannelKind.STATE,
+                is("DateTime"));
+        assertChannel(actual, METADATA_GROUP, LAST_QUERY_TRIGGER, LAST_QUERY_TRIGGER_CHANNELTYPEUID,
                 ChannelKind.TRIGGER, nullValue());
-        assertChannel(actual.get(2), METADATA_GROUP, LAST_QUERY_STATE, LAST_QUERY_STATE_CHANNELTYPEUID,
-                ChannelKind.STATE, is("String"));
-        assertChannel(actual.get(3), METADATA_GROUP, DATEUTC, DATEUTC_CHANNELTYPEUID, ChannelKind.STATE, is("String"));
-        assertChannel(actual.get(4), METADATA_GROUP, REALTIME_FREQUENCY, REALTIME_FREQUENCY_CHANNELTYPEUID,
-                ChannelKind.STATE, is("Number"));
-        assertChannel(actual.get(5), METADATA_GROUP, SOFTWARE_TYPE, SOFTWARETYPE_CHANNELTYPEUID, ChannelKind.STATE,
+        assertChannel(actual, METADATA_GROUP, LAST_QUERY_STATE, LAST_QUERY_STATE_CHANNELTYPEUID, ChannelKind.STATE,
                 is("String"));
-        assertChannel(actual.get(6), HUMIDITY_GROUP, HUMIDITY, HUMIDITY_CHANNELTYPEUID, ChannelKind.STATE,
+        assertChannel(actual, METADATA_GROUP, DATEUTC, DATEUTC_CHANNELTYPEUID, ChannelKind.STATE, is("String"));
+        assertChannel(actual, METADATA_GROUP, REALTIME_FREQUENCY, REALTIME_FREQUENCY_CHANNELTYPEUID, ChannelKind.STATE,
+                is("Number"));
+        assertChannel(actual, METADATA_GROUP, SOFTWARE_TYPE, SOFTWARETYPE_CHANNELTYPEUID, ChannelKind.STATE,
+                is("String"));
+        assertChannel(actual, HUMIDITY_GROUP, HUMIDITY, HUMIDITY_CHANNELTYPEUID, ChannelKind.STATE,
                 is("Number:Dimensionless"));
-        assertChannel(actual.get(7), WIND_GROUP, WIND_SPEED_AVG_2MIN, WIND_SPEED_AVG_2MIN_CHANNELTYPEUID,
-                ChannelKind.STATE, is("Number:Speed"));
-        assertChannel(actual.get(8), POLLUTION_GROUP, AQ_PM2_5, PM2_5_MASS_CHANNELTYPEUID, ChannelKind.STATE,
+        assertChannel(actual, WIND_GROUP, WIND_SPEED_AVG_2MIN, WIND_SPEED_AVG_2MIN_CHANNELTYPEUID, ChannelKind.STATE,
+                is("Number:Speed"));
+        assertChannel(actual, POLLUTION_GROUP, AQ_PM2_5, PM2_5_MASS_CHANNELTYPEUID, ChannelKind.STATE,
                 is("Number:Density"));
     }
 
@@ -138,15 +136,13 @@ class WundergroundUpdateReceiverDiscoveryServiceTest {
                 + "action=updateraw&" + "realtime=1&" + "rtfreq=5";
         WundergroundUpdateReceiverDiscoveryService discoveryService = mock(
                 WundergroundUpdateReceiverDiscoveryService.class);
-        HttpService httpService = mock(HttpService.class);
-        WundergroundUpdateReceiverServlet sut = new WundergroundUpdateReceiverServlet(httpService, discoveryService);
+        WundergroundUpdateReceiverServlet sut = new WundergroundUpdateReceiverServlet(discoveryService);
         WundergroundUpdateReceiverHandler handler = mock(WundergroundUpdateReceiverHandler.class);
         when(handler.getStationId()).thenReturn(STATION_ID_1);
         sut.addHandler(handler);
         when(discoveryService.isBackgroundDiscoveryEnabled()).thenReturn(false);
 
         // Then
-        verify(httpService).registerServlet(eq(WundergroundUpdateReceiverServlet.SERVLET_URL), eq(sut), any(), any());
         assertThat(sut.isActive(), is(true));
 
         HttpChannel httpChannel = mock(HttpChannel.class);
@@ -181,8 +177,7 @@ class WundergroundUpdateReceiverDiscoveryServiceTest {
         TestChannelTypeRegistry channelTypeRegistry = new TestChannelTypeRegistry();
         WundergroundUpdateReceiverDiscoveryService discoveryService = new WundergroundUpdateReceiverDiscoveryService(
                 false);
-        HttpService httpService = mock(HttpService.class);
-        WundergroundUpdateReceiverServlet sut = new WundergroundUpdateReceiverServlet(httpService, discoveryService);
+        WundergroundUpdateReceiverServlet sut = new WundergroundUpdateReceiverServlet(discoveryService);
         discoveryService.addUnhandledStationId(REQ_STATION_ID, sut.normalizeParameterMap(req.getParameterMap()));
         Thing thing = ThingBuilder.create(SUPPORTED_THING_TYPES_UIDS.stream().findFirst().get(), TEST_THING_UID)
                 .withConfiguration(new Configuration(Map.of(REPRESENTATION_PROPERTY, REQ_STATION_ID)))
@@ -196,7 +191,7 @@ class WundergroundUpdateReceiverDiscoveryServiceTest {
         sut.addHandler(handler);
 
         // When
-        sut.activate();
+        sut.enable();
 
         // Then
         assertThat(sut.isActive(), is(true));
@@ -227,8 +222,7 @@ class WundergroundUpdateReceiverDiscoveryServiceTest {
         TestChannelTypeRegistry channelTypeRegistry = new TestChannelTypeRegistry();
         WundergroundUpdateReceiverDiscoveryService discoveryService = new WundergroundUpdateReceiverDiscoveryService(
                 true);
-        HttpService httpService = mock(HttpService.class);
-        WundergroundUpdateReceiverServlet sut = new WundergroundUpdateReceiverServlet(httpService, discoveryService);
+        WundergroundUpdateReceiverServlet sut = new WundergroundUpdateReceiverServlet(discoveryService);
         discoveryService.addUnhandledStationId(REQ_STATION_ID, sut.normalizeParameterMap(req1.getParameterMap()));
         Thing thing = ThingBuilder.create(SUPPORTED_THING_TYPES_UIDS.stream().findFirst().get(), TEST_THING_UID)
                 .withConfiguration(new Configuration(Map.of(REPRESENTATION_PROPERTY, REQ_STATION_ID)))
@@ -261,7 +255,7 @@ class WundergroundUpdateReceiverDiscoveryServiceTest {
                 HttpVersion.HTTP_1_1, new HttpFields());
         Request req2 = new Request(httpChannel, null);
         req2.setMetaData(request);
-        sut.activate();
+        sut.enable();
 
         // Then
         assertThat(sut.isActive(), is(true));
@@ -294,8 +288,7 @@ class WundergroundUpdateReceiverDiscoveryServiceTest {
         TestChannelTypeRegistry channelTypeRegistry = new TestChannelTypeRegistry();
         WundergroundUpdateReceiverDiscoveryService discoveryService = new WundergroundUpdateReceiverDiscoveryService(
                 true);
-        HttpService httpService = mock(HttpService.class);
-        WundergroundUpdateReceiverServlet sut = new WundergroundUpdateReceiverServlet(httpService, discoveryService);
+        WundergroundUpdateReceiverServlet sut = new WundergroundUpdateReceiverServlet(discoveryService);
         discoveryService.addUnhandledStationId(REQ_STATION_ID, sut.normalizeParameterMap(req1.getParameterMap()));
         Thing thing = ThingBuilder.create(SUPPORTED_THING_TYPES_UIDS.stream().findFirst().get(), TEST_THING_UID)
                 .withConfiguration(new Configuration(Map.of(REPRESENTATION_PROPERTY, REQ_STATION_ID)))
@@ -328,7 +321,7 @@ class WundergroundUpdateReceiverDiscoveryServiceTest {
                 HttpVersion.HTTP_1_1, new HttpFields());
         Request req2 = new Request(httpChannel, null);
         req2.setMetaData(request);
-        sut.activate();
+        sut.enable();
 
         // Then
         assertThat(sut.isActive(), is(true));
@@ -358,8 +351,7 @@ class WundergroundUpdateReceiverDiscoveryServiceTest {
         UpdatingChannelTypeRegistry channelTypeRegistry = new UpdatingChannelTypeRegistry();
         WundergroundUpdateReceiverDiscoveryService discoveryService = new WundergroundUpdateReceiverDiscoveryService(
                 true);
-        HttpService httpService = mock(HttpService.class);
-        WundergroundUpdateReceiverServlet sut = new WundergroundUpdateReceiverServlet(httpService, discoveryService);
+        WundergroundUpdateReceiverServlet sut = new WundergroundUpdateReceiverServlet(discoveryService);
         discoveryService.addUnhandledStationId(REQ_STATION_ID, sut.normalizeParameterMap(req1.getParameterMap()));
         Thing thing = ThingBuilder.create(SUPPORTED_THING_TYPES_UIDS.stream().findFirst().get(), TEST_THING_UID)
                 .withConfiguration(new Configuration(Map.of(REPRESENTATION_PROPERTY, REQ_STATION_ID)))
@@ -388,8 +380,8 @@ class WundergroundUpdateReceiverDiscoveryServiceTest {
 
         // Then
         assertThat(actual.size(), is(8));
-        assertChannel(actual.get(7), METADATA_GROUP, LAST_QUERY_TRIGGER, LAST_QUERY_TRIGGER_CHANNELTYPEUID,
-                ChannelKind.STATE, is("DateTime"));
+        assertChannel(actual, METADATA_GROUP, LAST_QUERY_TRIGGER, LAST_QUERY_TRIGGER_CHANNELTYPEUID, ChannelKind.STATE,
+                is("DateTime"));
 
         // When
         handler.dispose();
@@ -403,7 +395,7 @@ class WundergroundUpdateReceiverDiscoveryServiceTest {
                 HttpVersion.HTTP_1_1, new HttpFields());
         Request req2 = new Request(httpChannel, null);
         req2.setMetaData(request);
-        sut.activate();
+        sut.enable();
 
         // Then
         assertThat(sut.isActive(), is(true));
@@ -414,15 +406,16 @@ class WundergroundUpdateReceiverDiscoveryServiceTest {
 
         // Then
         assertThat(actual.size(), is(8));
-        assertChannel(actual.get(7), METADATA_GROUP, LAST_QUERY_TRIGGER, LAST_QUERY_TRIGGER_CHANNELTYPEUID,
+        assertChannel(actual, METADATA_GROUP, LAST_QUERY_TRIGGER, LAST_QUERY_TRIGGER_CHANNELTYPEUID,
                 ChannelKind.TRIGGER, nullValue());
     }
 
-    private void assertChannel(Channel actual, String expectedGroup, String expectedName, ChannelTypeUID expectedUid,
-            ChannelKind expectedKind, Matcher<Object> expectedItemType) {
+    private void assertChannel(List<Channel> channels, String expectedGroup, String expectedName,
+            ChannelTypeUID expectedUid, ChannelKind expectedKind, Matcher<Object> expectedItemType) {
+        ChannelUID channelUID = new ChannelUID(TEST_THING_UID, expectedGroup, expectedName);
+        Channel actual = channels.stream().filter(c -> channelUID.equals(c.getUID())).findFirst().orElse(null);
         assertThat(actual, is(notNullValue()));
-        assertThat(actual.getLabel() + " UID", actual.getUID(),
-                is(new ChannelUID(TEST_THING_UID, expectedGroup, expectedName)));
+        assertThat(actual.getLabel() + " UID", actual.getUID(), is(channelUID));
         assertThat(actual.getLabel() + " ChannelTypeUID", actual.getChannelTypeUID(), is(expectedUid));
         assertThat(actual.getLabel() + " Kind", actual.getKind(), is(expectedKind));
         assertThat(actual.getLabel() + " AcceptedItemType", actual.getAcceptedItemType(), expectedItemType);

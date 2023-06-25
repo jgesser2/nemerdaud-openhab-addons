@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -136,6 +136,12 @@ public class ShellyRelayHandler extends ShellyBaseHandler {
             case CHANNEL_TIMER_AUTOOFF:
                 logger.debug("{}: Set Auto-OFF timer to {}", thingName, command);
                 api.setAutoTimer(rIndex, SHELLY_TIMER_AUTOOFF, getNumber(command).doubleValue());
+                break;
+            case CHANNEL_EMETER_RESETTOTAL:
+                logger.debug("{}: Reset Meter Totals", thingName);
+                int mIndex = Integer.parseInt(substringAfter(groupName, CHANNEL_GROUP_METER)) - 1;
+                api.resetMeterTotal(mIndex);
+                updateChannel(groupName, CHANNEL_EMETER_RESETTOTAL, OnOffType.OFF);
                 break;
         }
         return true;
