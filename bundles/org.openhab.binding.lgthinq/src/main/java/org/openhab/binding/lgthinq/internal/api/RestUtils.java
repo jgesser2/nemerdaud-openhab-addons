@@ -54,7 +54,7 @@ public class RestUtils {
     private static final String HMAC_SHA1_ALGORITHM = "HmacSHA1";
     private static final RequestConfig requestConfig;
     static {
-        int timeout = 5;
+        int timeout = 10; // TODO: magic number
         requestConfig = RequestConfig.custom().setConnectTimeout(timeout * 1000)
                 .setConnectionRequestTimeout(timeout * 1000).setSocketTimeout(timeout * 1000).build();
     }
