@@ -109,9 +109,7 @@ public class LGThinQAirConditionerHandler extends LGThinQAbstractDeviceHandler<A
 
     @Override
     public void initialize() {
-        logger.debug("Initializing Thinq thing.");
-        Bridge bridge = getBridge();
-        initializeThing((bridge == null) ? null : bridge.getStatus());
+    	super.initialize();
         try {
             ACCapability cap = getCapabilities();
             if (!isExtraInfoCollectorSupported()) {
@@ -373,8 +371,7 @@ public class LGThinQAirConditionerHandler extends LGThinQAbstractDeviceHandler<A
             updateState(currentPowerEnergyChannelUID, UnDefType.NULL);
         } else if (NumberUtils.isCreatable(instantPowerConsumption)) {
             double ip = Double.parseDouble(instantPowerConsumption);
-            ip = ip / 1000;
-            updateState(currentPowerEnergyChannelUID, new QuantityType<>(ip, Units.KILOWATT_HOUR));
+            updateState(currentPowerEnergyChannelUID, new QuantityType<>(ip, Units.WATT));
         } else {
             updateState(currentPowerEnergyChannelUID, UnDefType.UNDEF);
         }
