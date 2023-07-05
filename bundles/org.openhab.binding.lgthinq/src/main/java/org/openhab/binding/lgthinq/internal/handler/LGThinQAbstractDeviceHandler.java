@@ -172,6 +172,7 @@ public abstract class LGThinQAbstractDeviceHandler<C extends CapabilityDefinitio
             commandExecutorQueueJob.cancel(true);
             commandExecutorQueueJob = null;
         }
+        commandExecutorQueueJob = null;
     }
 
     protected void handleStatusChanged(ThingStatus newStatus, ThingStatusDetail statusDetail) {
