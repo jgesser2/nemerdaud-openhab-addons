@@ -170,7 +170,9 @@ public abstract class LGThinQAbstractDeviceHandler<C extends CapabilityDefinitio
     protected void stopCommandExecutorQueueJob() {
         if (commandExecutorQueueJob != null) {
             commandExecutorQueueJob.cancel(true);
+            commandExecutorQueueJob = null;
         }
+        commandExecutorQueueJob = null;
     }
 
     protected void handleStatusChanged(ThingStatus newStatus, ThingStatusDetail statusDetail) {
@@ -492,20 +494,24 @@ public abstract class LGThinQAbstractDeviceHandler<C extends CapabilityDefinitio
     private void handlePowerChange(@Nullable DevicePowerState previous, DevicePowerState current) {
         // isThingReconfigured is true when configurations has been updated or thing has just initialized
         // this will force to analyse polling periods and starts
-        if (!isThingReconfigured && (pollingPeriodOffSeconds == pollingPeriodOnSeconds || previous == current)) {
+        if (!isThingReconfigured && previous == current) {
             // no changes needed
             return;
         }
+        
         // change from OFF to ON / OFF to ON
         boolean isEnableToStartCollector = isExtraInfoCollectorEnabled() && isExtraInfoCollectorSupported();
+        
         if (current == DevicePowerState.DV_POWER_ON) {
             currentPeriodSeconds = pollingPeriodOnSeconds;
+            
             // if extendedInfo collector is enabled, then force do start to prevent previous stop
             if (isEnableToStartCollector) {
                 startExtraInfoCollectorPolling();
             }
         } else {
             currentPeriodSeconds = pollingPeriodOffSeconds;
+            
             // if it's configured to stop extra-info collection on PowerOff, then stop the job
             if (!pollExtraInfoOnPowerOff) {
                 stopExtraInfoCollectorPolling();
@@ -513,8 +519,12 @@ public abstract class LGThinQAbstractDeviceHandler<C extends CapabilityDefinitio
                 startExtraInfoCollectorPolling();
             }
         }
+        
         // restart thing state polling for the new poolingPeriod configuration
-        stopThingStatePolling();
+        if (pollingPeriodOffSeconds != pollingPeriodOnSeconds) {
+            stopThingStatePolling();
+        }
+        
         startThingStatePolling();
     }
 
@@ -732,19 +742,15 @@ public abstract class LGThinQAbstractDeviceHandler<C extends CapabilityDefinitio
             account.unRegistryListenerThing(this);
         }
         
-        if (thingStatePollingJob != null) {
-            thingStatePollingJob.cancel(true);
-            stopThingStatePolling();
-            stopExtraInfoCollectorPolling();
-            stopCommandExecutorQueueJob();
-            try {
-                if (LGAPIVerion.V1_0.equals(getCapabilities().getDeviceVersion())) {
-                    stopDeviceV1Monitor(getDeviceId());
-                }
-            } catch (Exception e) {
-                logger.warn("Can't stop active monitor. It's can be normally ignored. Cause:{}", e.getMessage());
+        stopThingStatePolling();
+        stopExtraInfoCollectorPolling();
+        stopCommandExecutorQueueJob();
+        try {
+            if (LGAPIVerion.V1_0.equals(getCapabilities().getDeviceVersion())) {
+                stopDeviceV1Monitor(getDeviceId());
             }
-            thingStatePollingJob = null;
+        } catch (Exception e) {
+            logger.warn("Can't stop active monitor. It's can be normally ignored. Cause:{}", e.getMessage());
         }
     }
 

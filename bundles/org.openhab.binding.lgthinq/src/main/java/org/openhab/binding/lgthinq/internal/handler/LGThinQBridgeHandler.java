@@ -23,16 +23,18 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 
+import org.eclipse.jdt.annotation.NonNull;
 import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.binding.lgthinq.internal.LGThinQBridgeConfiguration;
 import org.openhab.binding.lgthinq.internal.api.TokenManager;
 import org.openhab.binding.lgthinq.internal.discovery.LGThinqDiscoveryService;
 import org.openhab.binding.lgthinq.internal.errors.LGThinqException;
 import org.openhab.binding.lgthinq.internal.errors.RefreshTokenException;
-import org.openhab.binding.lgthinq.lgservices.LGThinQACApiV1ClientServiceImpl;
-import org.openhab.binding.lgthinq.lgservices.LGThinQApiClientService;
+import org.openhab.binding.lgthinq.lgservices.LGThinQApiClientServiceFactory;
+import org.openhab.binding.lgthinq.lgservices.LGThinQApiClientServiceFactory.LGThinQGeneralApiClientService;
 import org.openhab.binding.lgthinq.lgservices.model.LGDevice;
 import org.openhab.core.config.core.status.ConfigStatusMessage;
+import org.openhab.core.io.net.http.HttpClientFactory;
 import org.openhab.core.thing.Bridge;
 import org.openhab.core.thing.ChannelUID;
 import org.openhab.core.thing.ThingStatus;
@@ -68,15 +70,21 @@ public class LGThinQBridgeHandler extends ConfigStatusBridgeHandler implements L
     private LGThinQBridgeConfiguration lgthinqConfig;
     private TokenManager tokenManager;
     private LGThinqDiscoveryService discoveryService;
-    private LGThinQApiClientService lgApiClient;
+    private LGThinQGeneralApiClientService lgApiClient;
     private @Nullable Future<?> initJob;
     private @Nullable ScheduledFuture<?> devicePollingJob;
+    private @NonNull HttpClientFactory httpClientFactory;
 
-    public LGThinQBridgeHandler(Bridge bridge) {
+    public LGThinQBridgeHandler(Bridge bridge, HttpClientFactory httpClientFactory) {
         super(bridge);
-        tokenManager = TokenManager.getInstance();
-        lgApiClient = LGThinQACApiV1ClientServiceImpl.getInstance();
+        this.httpClientFactory = httpClientFactory;
+        tokenManager = new TokenManager(httpClientFactory.getCommonHttpClient());
+        lgApiClient = LGThinQApiClientServiceFactory.newGeneralApiClientService(httpClientFactory);
         lgDevicePollingRunnable = new LGDevicePollingRunnable(bridge.getUID().getId());
+    }
+    
+    public HttpClientFactory getHttpClientFactory() {
+        return httpClientFactory;
     }
 
     final ReentrantLock pollingLock = new ReentrantLock();
@@ -168,7 +176,7 @@ public class LGThinQBridgeHandler extends ConfigStatusBridgeHandler implements L
     public Collection<Class<? extends ThingHandlerService>> getServices() {
         return Collections.singleton(LGThinqDiscoveryService.class);
     }
-
+    
     @Override
     public void registryListenerThing(LGThinQAbstractDeviceHandler thing) {
         if (lGDeviceRegister.get(thing.getDeviceId()) == null) {
@@ -205,10 +213,15 @@ public class LGThinQBridgeHandler extends ConfigStatusBridgeHandler implements L
             // if not registered yet, and not discovered before, then add to discovery list.
             devices.forEach(device -> {
                 String deviceId = device.getDeviceId();
+                logger.debug("Device found: {}", deviceId);
                 if (lGDeviceRegister.get(deviceId) == null && !lastDevicesDiscovered.containsKey(deviceId)) {
                     logger.debug("Adding new LG Device to things registry with id:{}", deviceId);
                     if (discoveryService != null) {
                         discoveryService.addLgDeviceDiscovery(device);
+                    }
+                } else {
+                    if (discoveryService != null && lGDeviceRegister.get(deviceId) != null) {
+                        discoveryService.removeLgDeviceDiscovery(device);
                     }
                 }
                 lastDevicesDiscovered.put(deviceId, device);
@@ -216,7 +229,7 @@ public class LGThinQBridgeHandler extends ConfigStatusBridgeHandler implements L
             });
             // the rest in lastDevicesDiscoveredCopy is not more registered in LG API. Remove from discovery
             lastDevicesDiscoveredCopy.forEach((deviceId, device) -> {
-                logger.trace("LG Device '{}' removed.", deviceId);
+                logger.debug("LG Device '{}' removed.", deviceId);
                 lastDevicesDiscovered.remove(deviceId);
 
                 LGThinQAbstractDeviceHandler deviceThing = lGDeviceRegister.get(deviceId);
@@ -323,9 +336,13 @@ public class LGThinQBridgeHandler extends ConfigStatusBridgeHandler implements L
             poolingInterval = configPollingInterval;
         }
         // submit instantlly and schedule for the next polling interval.
-        scheduler.submit(lgDevicePollingRunnable);
+        runDiscovery();
         devicePollingJob = scheduler.scheduleWithFixedDelay(lgDevicePollingRunnable, 2, poolingInterval,
                 TimeUnit.SECONDS);
+    }
+    
+    public void runDiscovery() {
+        scheduler.submit(lgDevicePollingRunnable);        
     }
 
     @Override

@@ -25,9 +25,8 @@ import org.openhab.binding.lgthinq.internal.LGThinQStateDescriptionProvider;
 import org.openhab.binding.lgthinq.internal.errors.LGThinqApiException;
 import org.openhab.binding.lgthinq.internal.errors.LGThinqException;
 import org.openhab.binding.lgthinq.lgservices.LGThinQACApiClientService;
-import org.openhab.binding.lgthinq.lgservices.LGThinQACApiV1ClientServiceImpl;
-import org.openhab.binding.lgthinq.lgservices.LGThinQACApiV2ClientServiceImpl;
 import org.openhab.binding.lgthinq.lgservices.LGThinQApiClientService;
+import org.openhab.binding.lgthinq.lgservices.LGThinQApiClientServiceFactory;
 import org.openhab.binding.lgthinq.lgservices.model.DevicePowerState;
 import org.openhab.binding.lgthinq.lgservices.model.DeviceTypes;
 import org.openhab.binding.lgthinq.lgservices.model.LGDevice;
@@ -35,11 +34,11 @@ import org.openhab.binding.lgthinq.lgservices.model.devices.ac.ACCanonicalSnapsh
 import org.openhab.binding.lgthinq.lgservices.model.devices.ac.ACCapability;
 import org.openhab.binding.lgthinq.lgservices.model.devices.ac.ACTargetTmp;
 import org.openhab.binding.lgthinq.lgservices.model.devices.ac.ExtendedDeviceInfo;
+import org.openhab.core.io.net.http.HttpClientFactory;
 import org.openhab.core.library.types.DecimalType;
 import org.openhab.core.library.types.OnOffType;
 import org.openhab.core.library.types.QuantityType;
 import org.openhab.core.library.unit.Units;
-import org.openhab.core.thing.Bridge;
 import org.openhab.core.thing.ChannelGroupUID;
 import org.openhab.core.thing.ChannelUID;
 import org.openhab.core.thing.Thing;
@@ -84,11 +83,9 @@ public class LGThinQAirConditionerHandler extends LGThinQAbstractDeviceHandler<A
     private final LGThinQACApiClientService lgThinqACApiClientService;
 
     public LGThinQAirConditionerHandler(Thing thing, LGThinQStateDescriptionProvider stateDescriptionProvider,
-            ItemChannelLinkRegistry itemChannelLinkRegistry) {
+            ItemChannelLinkRegistry itemChannelLinkRegistry, HttpClientFactory httpClientFactory) {
         super(thing, stateDescriptionProvider, itemChannelLinkRegistry);
-        lgThinqACApiClientService = lgPlatformType.equals(PLATFORM_TYPE_V1)
-                ? LGThinQACApiV1ClientServiceImpl.getInstance()
-                : LGThinQACApiV2ClientServiceImpl.getInstance();
+        lgThinqACApiClientService = LGThinQApiClientServiceFactory.newACApiClientService(lgPlatformType, httpClientFactory);
         channelGroupDashboardUID = new ChannelGroupUID(getThing().getUID(), CHANNEL_DASHBOARD_GRP_ID);
         channelGroupExtendedInfoUID = new ChannelGroupUID(getThing().getUID(), CHANNEL_EXTENDED_INFO_GRP_ID);
 
@@ -109,7 +106,7 @@ public class LGThinQAirConditionerHandler extends LGThinQAbstractDeviceHandler<A
 
     @Override
     public void initialize() {
-    	super.initialize();
+        super.initialize();
         try {
             ACCapability cap = getCapabilities();
             if (!isExtraInfoCollectorSupported()) {
@@ -124,13 +121,13 @@ public class LGThinQAirConditionerHandler extends LGThinQAbstractDeviceHandler<A
                 updateThing(builder.build());
             }
         } catch (LGThinqApiException e) {
-            logger.warn("Error getting capability of the device:{}", getDeviceId());
+			logger.warn("Error getting capability of the device: {}", getDeviceId());
         }
     }
 
     @Override
     protected void updateDeviceChannels(ACCanonicalSnapshot shot) {
-        logger.debug("Calling updateDeviceChannel for device:{}", getDeviceAlias());
+		logger.debug("Calling updateDeviceChannel for device: {}", getDeviceId());
         updateState(powerChannelUID,
                 DevicePowerState.DV_POWER_ON.equals(shot.getPowerStatus()) ? OnOffType.ON : OnOffType.OFF);
         updateState(opModeChannelUID, new DecimalType(BigDecimal.valueOf(shot.getOperationMode())));
@@ -242,8 +239,10 @@ public class LGThinQAirConditionerHandler extends LGThinQAbstractDeviceHandler<A
 
     protected void resetExtraInfoChannels() {
         updateState(currentPowerEnergyChannelUID, UnDefType.UNDEF);
-        updateState(remainingFilterChannelUID, UnDefType.UNDEF);
-    }
+		if (!isExtraInfoCollectorEnabled()) { // if collector is enabled we can keep the current value
+		    updateState(remainingFilterChannelUID, UnDefType.UNDEF);
+		}
+	}
 
     protected void processCommand(AsyncCommandParams params) throws LGThinqApiException {
         Command command = params.command;
@@ -344,7 +343,7 @@ public class LGThinQAirConditionerHandler extends LGThinQAbstractDeviceHandler<A
         try {
             return getCapabilities().isEnergyMonitorAvailable() || getCapabilities().isFilterMonitorAvailable();
         } catch (LGThinqApiException e) {
-            logger.warn("Can't get capabilities of the device: {}", getDeviceId());
+			logger.warn("Can't get capabilities of the device: {}", getDeviceId());
         }
         return false;
     }
@@ -363,7 +362,7 @@ public class LGThinQAirConditionerHandler extends LGThinQAbstractDeviceHandler<A
 
     @Override
     protected void updateExtraInfoStateChannels(Map<String, Object> energyStateAttributes) throws LGThinqException {
-        logger.debug("Calling updateExtraInfoStateChannels for device:{}", getDeviceAlias());
+		logger.debug("Calling updateExtraInfoStateChannels for device: {}", getDeviceId());
         String instantPowerConsumption = (String) energyStateAttributes.get(EXTENDED_ATTR_INSTANT_POWER);
         String filterUsed = (String) energyStateAttributes.get(EXTENDED_ATTR_FILTER_USED_TIME);
         String filterTimelife = (String) energyStateAttributes.get(EXTENDED_ATTR_FILTER_MAX_TIME_TO_USE);
